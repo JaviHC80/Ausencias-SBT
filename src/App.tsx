@@ -457,99 +457,176 @@ function RegisterTab({ currentUser }: { currentUser: string }) {
 
 function CalendarTab({ absences }: { absences: Absence[] }) {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDay, setSelectedDay] = useState<string | null>(format(new Date(), 'yyyy-MM-dd'));
   
-  const days = eachDayOfInterval({
-    start: startOfWeek(startOfMonth(currentDate), { weekStartsOn: 1 }),
-    end: endOfWeek(endOfMonth(currentDate), { weekStartsOn: 1 })
-  });
+  const start = startOfMonth(currentDate);
+  const end = endOfMonth(currentDate);
+  const days = eachDayOfInterval({ start, end });
 
   const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
   const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
 
+  // Filter to show only Mon-Fri
+  const workDays = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+  const workDaysShort = ['L', 'M', 'X', 'J', 'V'];
+
+  const selectedDateAbsences = selectedDay 
+    ? absences.filter(abs => isWithinInterval(parseISO(selectedDay), { 
+        start: new Date(abs.startDate), 
+        end: new Date(abs.endDate) 
+      }))
+    : [];
+
   return (
-    <div className="space-y-8 mt-4">
-      <div className="flex items-center justify-between bg-white px-6 py-4 rounded-3xl border border-gray-100 shadow-sm">
-        <button onClick={prevMonth} className="p-2.5 hover:bg-gray-50 text-gray-400 hover:text-blue-600 rounded-xl transition-all border border-transparent hover:border-gray-100"><ChevronLeft className="w-5 h-5" /></button>
-        <h2 className="text-xl font-black capitalize tracking-tight text-gray-900">{format(currentDate, 'MMMM yyyy', { locale: es })}</h2>
-        <button onClick={nextMonth} className="p-2.5 hover:bg-gray-50 text-gray-400 hover:text-blue-600 rounded-xl transition-all border border-transparent hover:border-gray-100"><ChevronRight className="w-5 h-5" /></button>
+    <div className="space-y-6 mt-4">
+      <div className="flex items-center justify-between bg-white px-5 py-3 rounded-2xl border border-gray-100 shadow-sm">
+        <button onClick={prevMonth} className="p-2 hover:bg-gray-50 text-gray-400 rounded-xl transition-all"><ChevronLeft className="w-5 h-5" /></button>
+        <h2 className="text-lg font-black capitalize tracking-tight text-gray-900">{format(currentDate, 'MMMM yyyy', { locale: es })}</h2>
+        <button onClick={nextMonth} className="p-2 hover:bg-gray-50 text-gray-400 rounded-xl transition-all"><ChevronRight className="w-5 h-5" /></button>
       </div>
 
-      <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm p-3 overflow-hidden">
-        <div className="grid grid-cols-7 gap-1 mb-2">
-          {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(day => (
-            <div key={day} className="text-center text-[10px] font-black text-gray-300 py-3 tracking-[2px]">{day}</div>
+      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-2">
+        <div className="grid grid-cols-5 gap-1 mb-1">
+          {workDaysShort.map(day => (
+            <div key={day} className="text-center text-[10px] font-black text-gray-300 py-2 tracking-widest">{day}</div>
           ))}
         </div>
 
-        <div className="grid grid-cols-7 gap-3">
+        <div className="grid grid-cols-5 gap-1.5">
           {days.map((day, i) => {
-            const isSelectedMonth = day.getMonth() === currentDate.getMonth();
+            const dayOfWeek = day.getDay();
+            if (dayOfWeek === 0 || dayOfWeek === 6) return null; // Skip weekends
+
+            const ds = format(day, 'yyyy-MM-dd');
             const dayAbsences = absences.filter(abs => 
               isWithinInterval(day, { 
                 start: new Date(abs.startDate), 
                 end: new Date(abs.endDate) 
               })
             );
-            const activeWorkers = WORKERS.filter(w => !dayAbsences.some(abs => abs.userName === w));
             const isToday = isSameDay(day, new Date());
+            const isSelected = selectedDay === ds;
 
             return (
               <div 
                 key={i} 
+                onClick={() => setSelectedDay(ds)}
                 className={cn(
-                  "min-h-[140px] border rounded-2xl p-2.5 flex flex-col gap-1.5 transition-all",
-                  !isSelectedMonth ? "opacity-20 pointer-events-none grayscale" : "bg-gray-50/30",
-                  isToday ? "border-blue-500 bg-blue-50/30 scale-[1.02] z-10 shadow-lg shadow-blue-50" : "border-gray-50 hover:border-gray-200"
+                  "min-h-[85px] border rounded-xl p-1.5 flex flex-col gap-1 transition-all cursor-pointer relative",
+                  isSelected ? "border-blue-500 bg-blue-50/20 ring-1 ring-blue-500/10" : "border-gray-50 bg-gray-50/20 hover:border-gray-200",
+                  isToday && !isSelected ? "ring-1 ring-gray-200" : ""
                 )}
               >
                 <div className={cn(
-                  "text-[10px] font-black ml-auto p-1.5 px-2.5 rounded-lg",
-                  isToday ? "bg-blue-600 text-white shadow-md shadow-blue-200" : "text-gray-400"
+                  "text-[9px] font-black w-5 h-5 flex items-center justify-center rounded-md ml-auto",
+                  isToday ? "bg-blue-600 text-white shadow-sm" : "text-gray-400"
                 )}>
                   {format(day, 'd')}
                 </div>
                 
-                <div className="flex-1 flex flex-col gap-1 overflow-y-auto custom-scrollbar pr-1 mt-1">
+                <div className="flex-1 flex flex-col gap-0.5 overflow-hidden mt-0.5">
                   {WORKERS.map(worker => {
-                    const absence = dayAbsences.find(a => a.userName === worker);
-                    const isPartial = absence?.type === 'parcial';
-                    const isComplete = absence?.type === 'completa';
+                    const abs = dayAbsences.find(a => a.userName === worker);
+                    const isPartial = abs?.type === 'parcial';
+                    const isComplete = abs?.type === 'completa';
 
                     return (
                       <div 
                         key={worker}
                         className={cn(
-                          "text-[9px] px-2 py-0.5 rounded-lg flex items-center gap-1.5 font-bold transition-all truncate h-5 border",
+                          "text-[7px] px-1 py-0.5 rounded-sm font-black truncate h-3.5 border transition-all",
                           isComplete 
-                            ? "bg-transparent border-dotted border-gray-200" 
+                            ? "border-dotted border-gray-200 bg-transparent text-transparent" 
                             : isPartial
-                              ? cn("border-dashed opacity-60", getWorkerColor(worker))
-                              : cn("shadow-sm border-solid", getWorkerColor(worker))
+                              ? cn("border-dashed opacity-70", getWorkerColor(worker).replace('text-', 'text-opacity-50 text-'))
+                              : cn("shadow-[0_1px_2px_rgba(0,0,0,0.02)]", getWorkerColor(worker))
                         )}
                       >
-                        {!isComplete && (
-                          <>
-                            <div className={cn("w-1 h-1 rounded-full shrink-0", isPartial ? "opacity-50" : "", getWorkerDotColor(worker))} />
-                            <span className={cn("truncate", isPartial && "opacity-80")}>{worker}</span>
-                            {isPartial && <span className="ml-auto text-[7px] font-black opacity-50 uppercase tracking-tighter">PARC</span>}
-                          </>
-                        )}
+                        {!isComplete && worker}
                       </div>
                     );
                   })}
                 </div>
 
                 <div className={cn(
-                  "mt-auto pt-2 border-t text-center text-[11px] font-black",
-                  activeWorkers.length > 0 ? "text-blue-600 border-blue-50" : "text-gray-300 border-gray-100"
+                  "mt-auto pt-1 border-t border-gray-100 text-center text-[9px] font-black",
+                  (WORKERS.length - dayAbsences.length) > 0 ? "text-blue-600" : "text-gray-300"
                 )}>
-                  {activeWorkers.length}
+                  {WORKERS.length - dayAbsences.length}
                 </div>
               </div>
             );
           })}
         </div>
       </div>
+
+      {/* Details Panel */}
+      <AnimatePresence mode="wait">
+        {selectedDay && (
+          <motion.div
+            key={selectedDay}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-3xl border border-gray-100 shadow-xl p-6"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Detalles del día</h3>
+                <p className="text-xl font-black text-gray-900 capitalize">{format(parseISO(selectedDay), "EEEE, d 'de' MMMM", { locale: es })}</p>
+              </div>
+              <div className="bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-100/50 shadow-sm">
+                <span className="text-[12px] font-black text-blue-600">
+                  {WORKERS.length - selectedDateAbsences.length}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {WORKERS.map((worker) => {
+                const abs = selectedDateAbsences.find(a => a.userName === worker);
+                return (
+                  <div key={worker} className={cn(
+                    "flex items-center justify-between p-3 rounded-2xl border transition-all",
+                    abs ? "bg-gray-50/50 border-gray-100" : "bg-white border-transparent"
+                  )}>
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black text-white shadow-sm",
+                        abs ? "bg-gray-200" : "bg-blue-600"
+                      )}>
+                        {worker[0]}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-gray-900">{worker}</p>
+                        <p className="text-[10px] font-medium text-gray-400">{abs ? 'Ausente' : 'En el centro'}</p>
+                      </div>
+                    </div>
+
+                    {abs ? (
+                      <div className="flex items-center gap-2">
+                        <div className={cn("px-2.5 py-1 rounded-lg flex items-center gap-1.5", getReasonBg(abs.reason))}>
+                          <span className="text-lg leading-none">
+                            {abs.reason === 'Vacaciones' && '✈️'}
+                            {abs.reason === 'Asuntos propios' && '🏠'}
+                            {abs.reason === 'Médico' && '🩺'}
+                            {abs.reason === 'Baja' && '🩹'}
+                            {abs.reason === 'Permiso' && '📝'}
+                          </span>
+                          <span className={cn("text-[9px] font-black uppercase tracking-tight", getReasonColor(abs.reason))}>
+                            {abs.reason} · {abs.type}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="w-2 h-2 rounded-full bg-green-500 mr-2" />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -694,41 +771,6 @@ function AbsencesTab({ absences, currentUser, onTabChange }: { absences: Absence
           </div>
         )}
       </div>
-{/* BOTÓN DE MIGRACIÓN DE HISTORIAL DE CLAUDE */}
-<div style={{ margin: '20px', padding: '15px', border: '1px dashed #2196F3', borderRadius: '8px', backgroundColor: '#e3f2fd', textAlign: 'center' }}>
-  <p style={{ marginTop: 0, color: '#0d47a1', fontWeight: 'bold', fontFamily: 'sans-serif' }}>Migración desde App Anterior</p>
-  <input 
-    type="file" 
-    id="importarFile" 
-    style={{ display: 'none' }} 
-    onChange={(e) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = function() {
-        try {
-          const datosViejos = JSON.parse(reader.result as string);
-          localStorage.clear();
-          for (const clave in datosViejos) {
-            localStorage.setItem(clave, datosViejos[clave]);
-          }
-          alert("¡Migración exitosa! Se han restaurado tus datos. La app se reiniciará.");
-          window.location.reload();
-        } catch (err) {
-          alert("Error al leer el archivo .json");
-        }
-      };
-      reader.readAsText(file);
-    }}
-  />
-  <button 
-    onClick={() => document.getElementById('importarFile')?.click()} 
-    style={{ padding: '10px 15px', backgroundColor: '#2196F3', color: 'white', border: 'none', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer' }}
-  >
-    ⬆️ Importar copia 'historial_claude.json'
-  </button>
-</div>
-
     </div>
   );
 }
