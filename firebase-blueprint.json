@@ -1,0 +1,25 @@
+{
+  "entities": {
+    "Absence": {
+      "title": "Absence",
+      "description": "A record of an employee absence",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "startDate": { "type": "string", "format": "date-time" },
+        "endDate": { "type": "string", "format": "date-time" },
+        "type": { "type": "string", "enum": ["completa", "parcial"] },
+        "reason": { "type": "string", "enum": ["Vacaciones", "Asuntos propios", "Médico", "Baja", "Permiso"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "userName", "startDate", "endDate", "type", "reason", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/absences/{absenceId}": {
+      "schema": "Absence",
+      "description": "Collection of employee absences"
+    }
+  }
+}

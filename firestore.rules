@@ -1,0 +1,56 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 0.1 Context-Aware Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Pillar 2: Validation Blueprints
+    function isValidAbsence(data) {
+      return data.userId is string && data.userId.size() <= 100 &&
+             data.userName is string && data.userName.size() <= 100 &&
+             data.startDate is timestamp &&
+             data.endDate is timestamp &&
+             data.type in ['completa', 'parcial'] &&
+             data.reason in ['Vacaciones', 'Asuntos propios', 'Médico', 'Baja', 'Permiso'] &&
+             data.createdAt is timestamp &&
+             data.keys().hasAll(['userId', 'userName', 'startDate', 'endDate', 'type', 'reason', 'createdAt']) &&
+             data.keys().size() == 7;
+    }
+
+    match /absences/{absenceId} {
+      // Pillar 8: Secure List Queries
+      // The user explicitly wants a public calendar and list of all absences
+      allow get, list: if true;
+
+      // Pillar 2: Identity Integrity in Create
+      allow create: if isValidAbsence(incoming());
+
+      // Pillar 4: Tiered Identity Logic / Pillar 9: Immortal Fields
+      allow update: if isSignedIn() && 
+                      isValidAbsence(incoming()) &&
+                      incoming().userId == existing().userId &&
+                      incoming().createdAt == existing().createdAt;
+
+      allow delete: if isSignedIn();
+    }
+  }
+}
