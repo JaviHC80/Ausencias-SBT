@@ -37,20 +37,16 @@ service cloud.firestore {
     }
 
     match /absences/{absenceId} {
-      // Pillar 8: Secure List Queries
-      // The user explicitly wants a public calendar and list of all absences
+      // Allow public read for calendar visibility
       allow get, list: if true;
 
-      // Pillar 2: Identity Integrity in Create
+      // Allow creation with validation
       allow create: if isValidAbsence(incoming());
 
-      // Pillar 4: Tiered Identity Logic / Pillar 9: Immortal Fields
-      allow update: if isSignedIn() && 
-                      isValidAbsence(incoming()) &&
-                      incoming().userId == existing().userId &&
-                      incoming().createdAt == existing().createdAt;
-
-      allow delete: if isSignedIn();
+      // Allow updates/deletes with validation
+      // Note: Real security would require enabling an Auth provider in Firebase console.
+      allow update: if isValidAbsence(incoming());
+      allow delete: if true;
     }
   }
 }

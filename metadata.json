@@ -1,6 +1,10 @@
 {
-  "name": "Asistencia App",
-  "description": "Aplicación para el control de asistencia y gestión de ausencias de empleados.",
-  "requestFramePermissions": [],
-  "majorCapabilities": []
+  "name": "AsistenciaPro",
+  "description": "Sistema avanzado de gestión de ausencias y control de asistencia con notificaciones push.",
+  "requestFramePermissions": [
+    "notifications"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
