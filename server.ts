@@ -17,7 +17,7 @@ async function startServer() {
     const { message, recipients, title } = req.body;
     
     const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY;
-    const ONESIGNAL_APP_ID = "e187962a-f10d-4758-a048-498513d8bbde";
+    const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID || "e187962a-f10d-4758-a048-498513d8bbde";
 
     if (!ONESIGNAL_REST_API_KEY) {
       console.warn('ONESIGNAL_REST_API_KEY not found in environment');
